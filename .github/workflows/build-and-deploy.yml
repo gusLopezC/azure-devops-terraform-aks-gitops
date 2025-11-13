@@ -16,6 +16,7 @@ env:
   ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }} # e.g. myacr.azurecr.io
   GITOPS_REPO: https://github.com/gusLopezC/azure-devops-terraform-aks-gitops.git
   GITOPS_BRANCH: main
+  ARGOCD_APP_NAME: flask-app
 
 jobs:
   build-and-deploy:
@@ -63,3 +64,46 @@ jobs:
           git add gitops-manifests/deployment.yaml
           git commit -m "Update image tag to ${{ github.sha }} [skip ci]"
           git push origin $GITOPS_BRANCH
+
+      - name: Install ArgoCD CLI
+        run: |
+          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+          rm argocd-linux-amd64
+          argocd version --client
+
+      - name: Get ArgoCD Server and Password
+        id: argocd
+        run: |
+          # Obtener la IP del servidor de ArgoCD
+          ARGOCD_SERVER=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          if [ -z "$ARGOCD_SERVER" ]; then
+            ARGOCD_SERVER=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          fi
+          echo "server=$ARGOCD_SERVER" >> $GITHUB_OUTPUT
+          
+          # Obtener la contraseña de ArgoCD
+          ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+          echo "password=$ARGOCD_PASSWORD" >> $GITHUB_OUTPUT
+          
+          echo "ArgoCD Server: $ARGOCD_SERVER"
+
+      - name: Sync ArgoCD Application
+        env:
+          ARGOCD_SERVER: ${{ steps.argocd.outputs.server }}
+          ARGOCD_PASSWORD: ${{ steps.argocd.outputs.password }}
+        run: |
+          # Esperar un momento para que ArgoCD detecte el cambio en el repo
+          sleep 10
+          
+          # Login a ArgoCD
+          argocd login $ARGOCD_SERVER --username admin --password "$ARGOCD_PASSWORD" --insecure --grpc-web
+          
+          # Hacer sync de la aplicación
+          argocd app sync $ARGOCD_APP_NAME --prune --force || echo "Sync command completed (may have warnings)"
+          
+          # Esperar a que el sync se complete
+          argocd app wait $ARGOCD_APP_NAME --timeout 300 || echo "Wait timeout or app already synced"
+          
+          # Mostrar el estado de la aplicación
+          argocd app get $ARGOCD_APP_NAME
