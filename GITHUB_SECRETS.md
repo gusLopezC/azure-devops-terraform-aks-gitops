@@ -11,6 +11,7 @@ Necesitas configurar los siguientes secretos en tu repositorio de GitHub:
 3. `RESOURCE_GROUP` - Nombre del Resource Group
 4. `AKS_CLUSTER` - Nombre del cluster AKS
 5. `ACR_LOGIN_SERVER` - Servidor de login del ACR
+6. `GITHUB_PAT` ⚠️ **REQUERIDO** - Personal Access Token de GitHub para hacer push al repositorio GitOps
 
 ---
 
@@ -78,9 +79,39 @@ az role assignment create \
 
 ---
 
-## 📝 Paso 2: Obtener los Valores de los Secretos
+## 🔑 Paso 2: Crear Personal Access Token (PAT) de GitHub
 
-### 2.1 Obtener valores desde Terraform (si ya aplicaste la infraestructura)
+El secreto `GITHUB_PAT` es necesario para que GitHub Actions pueda hacer push al repositorio GitOps.
+
+### 2.1 Crear el Personal Access Token
+
+1. Ve a GitHub → **Settings** (tu perfil) → **Developer settings** → **Personal access tokens** → **Tokens (classic)**
+2. Click en **Generate new token** → **Generate new token (classic)**
+3. Configura el token:
+   - **Note**: `GitOps Push Token` (o cualquier nombre descriptivo)
+   - **Expiration**: Elige una fecha de expiración (recomendado: 90 días o más)
+   - **Scopes**: Marca las siguientes opciones:
+     - ✅ `repo` (Full control of private repositories)
+       - Esto incluye: `repo:status`, `repo_deployment`, `public_repo`, `repo:invite`, `security_events`
+4. Click en **Generate token**
+5. **⚠️ IMPORTANTE**: Copia el token inmediatamente. No podrás verlo de nuevo.
+
+### 2.2 Configurar el secreto en GitHub
+
+1. Ve a tu repositorio en GitHub
+2. **Settings** → **Secrets and variables** → **Actions**
+3. Click en **New repository secret**
+4. **Name**: `GITHUB_PAT`
+5. **Value**: Pega el token que copiaste
+6. Click en **Add secret**
+
+**Nota**: Si el repositorio GitOps es público, puedes usar un token con permisos más limitados, pero `repo` es el más seguro y completo.
+
+---
+
+## 📝 Paso 3: Obtener los Valores de los Secretos
+
+### 3.1 Obtener valores desde Terraform (si ya aplicaste la infraestructura)
 
 ```bash
 cd terraform
@@ -98,7 +129,7 @@ terraform output acr_login_server
 # Resultado: acraksXXXX.azurecr.io
 ```
 
-### 2.2 Obtener valores desde Azure CLI
+### 3.2 Obtener valores desde Azure CLI
 
 ```bash
 RESOURCE_GROUP="rg-aks-lab"
@@ -118,16 +149,16 @@ echo "AKS_CLUSTER: $AKS_CLUSTER"
 
 ---
 
-## ⚙️ Paso 3: Configurar Secretos en GitHub
+## ⚙️ Paso 4: Configurar Secretos en GitHub
 
-### 3.1 Ir a la configuración de secretos
+### 4.1 Ir a la configuración de secretos
 
 1. Ve a tu repositorio en GitHub
 2. Click en **Settings** (Configuración)
 3. En el menú lateral, click en **Secrets and variables** → **Actions**
 4. Click en **New repository secret**
 
-### 3.2 Agregar cada secreto
+### 4.2 Agregar cada secreto
 
 Configura los siguientes secretos uno por uno:
 
@@ -163,22 +194,28 @@ Configura los siguientes secretos uno por uno:
 - **Value**: El login server completo con `.azurecr.io`
 - **Ejemplo**: `acraks8vng.azurecr.io`
 
+#### 🔐 `GITHUB_PAT`
+- **Name**: `GITHUB_PAT`
+- **Value**: El Personal Access Token que creaste en el Paso 2
+- **Ejemplo**: `ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` (el token completo)
+
 ---
 
-## ✅ Paso 4: Verificar la Configuración
+## ✅ Paso 5: Verificar la Configuración
 
-### 4.1 Verificar que todos los secretos estén configurados
+### 5.1 Verificar que todos los secretos estén configurados
 
 En GitHub: **Settings** → **Secrets and variables** → **Actions**
 
-Debes ver estos 5 secretos:
+Debes ver estos 6 secretos:
 - ✅ `AZURE_CREDENTIALS`
 - ✅ `REGISTRY_NAME`
 - ✅ `RESOURCE_GROUP`
 - ✅ `AKS_CLUSTER`
 - ✅ `ACR_LOGIN_SERVER`
+- ✅ `GITHUB_PAT`
 
-### 4.2 Probar el workflow
+### 5.2 Probar el workflow
 
 1. Haz un push a la rama `main`, o
 2. Ve a **Actions** → Selecciona el workflow → **Run workflow**
@@ -238,6 +275,7 @@ Basándote en tu configuración actual (`terraform.tfvars`):
 | `RESOURCE_GROUP` | `rg-aks-lab` | De `terraform.tfvars` |
 | `AKS_CLUSTER` | `aks-lab` | De `terraform.tfvars` |
 | `ACR_LOGIN_SERVER` | `acraksXXXX.azurecr.io` | `terraform output acr_login_server` |
+| `GITHUB_PAT` | Personal Access Token | GitHub → Settings → Developer settings → Personal access tokens |
 
 ---
 
