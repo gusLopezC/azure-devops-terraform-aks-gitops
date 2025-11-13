@@ -14,8 +14,11 @@ spec:
       labels:
         app: flask-api
     spec:
+      imagePullSecrets:
+      - name: acr-secret
       containers:
       - name: flask-api
-        image: <ACR_LOGIN_SERVER>/flask-api:v1  # Reemplazar <ACR_LOGIN_SERVER> con tu ACR
+        image: acraks8vng.azurecr.io/flask-api:v1  # Reemplazar <ACR_LOGIN_SERVER> con tu ACR
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080

@@ -135,18 +135,37 @@ Accede a Argo CD en: `https://IP_EXTERNA` (puede tardar unos minutos en estar di
 
 ## 📝 Paso 6: Construir y Publicar la Imagen Docker
 
+**⚠️ Importante**: Si estás trabajando desde un Mac con procesador Apple Silicon (M1/M2/M3) o cualquier máquina ARM64, debes construir la imagen para la arquitectura AMD64/x86_64 que usa AKS. La mejor forma es usar **ACR Build** que construye la imagen en la nube para la arquitectura correcta.
+
 ```bash
 # Volver al directorio raíz
 cd ..
 
 # Obtener el nombre del ACR (del output de Terraform o desde Azure)
-# O ejecutar: terraform output -raw acr_login_server
 ACR_NAME=$(az acr list --resource-group rg-aks-lab --query "[0].name" -o tsv)
 ACR_LOGIN_SERVER="${ACR_NAME}.azurecr.io"
 
 # Autenticarse en ACR
 az acr login --name $ACR_NAME
 
+# Construir y publicar la imagen usando ACR Build (recomendado para Mac M1/M2/M3)
+# Esto construye la imagen en la nube para la arquitectura correcta (AMD64)
+az acr build --registry $ACR_NAME --image flask-api:v1 --platform linux/amd64 ./app
+```
+
+**Nota**: ACR Build acepta `--platform linux/amd64` (no `linux/x86_64` aunque sean equivalentes). Si ya construiste la imagen localmente y quieres reconstruirla:
+
+```bash
+# Eliminar la imagen anterior si existe
+az acr repository delete --name $ACR_NAME --image flask-api:v1 --yes
+
+# Reconstruir para AMD64
+az acr build --registry $ACR_NAME --image flask-api:v1 --platform linux/amd64 ./app
+```
+
+**Alternativa** (solo si estás en una máquina AMD64/Linux): Si prefieres construir localmente:
+
+```bash
 # Construir la imagen Docker
 cd app
 docker build -t flask-api:v1 .
@@ -170,7 +189,7 @@ ACR_LOGIN_SERVER=$(az acr show --resource-group rg-aks-lab --name $ACR_NAME --qu
 
 # Actualizar el deployment.yaml (reemplaza acraksutai.azurecr.io con tu ACR)
 # Edita el archivo gitops-manifests/deployment.yaml y cambia:
-# image: acraksutai.azurecr.io/flask-api:v2
+# image: acraks8vng.azurecr.io/flask-api:v2
 # Por: image: ${ACR_LOGIN_SERVER}/flask-api:v1
 ```
 
@@ -182,6 +201,10 @@ También necesitas actualizar el puerto en `deployment.yaml` de 5000 a 8080 (ya 
 
 ## 📝 Paso 8: Configurar AKS para Acceder a ACR
 
+AKS necesita autenticarse con ACR para poder descargar las imágenes. Hay dos métodos:
+
+### Método 1: Usar Managed Identity (Recomendado, pero puede requerir tiempo de propagación)
+
 ```bash
 # Obtener el ID de la identidad del cluster AKS
 AKS_ID=$(az aks show --resource-group rg-aks-lab --name aks-lab --query identity.principalId -o tsv)
@@ -191,6 +214,35 @@ ACR_ID=$(az acr show --resource-group rg-aks-lab --name $ACR_NAME --query id -o 
 
 # Asignar el rol AcrPull al cluster AKS
 az role assignment create --assignee $AKS_ID --role AcrPull --scope $ACR_ID
+```
+
+**Nota**: Este método puede tardar unos minutos en propagarse. Si los pods tienen errores de `ImagePullBackOff`, usa el Método 2.
+
+### Método 2: Usar Kubernetes Secret (Más rápido y confiable)
+
+```bash
+# Obtener las credenciales de administrador de ACR
+ACR_USERNAME=$(az acr credential show --name $ACR_NAME --query "username" -o tsv)
+ACR_PASSWORD=$(az acr credential show --name $ACR_NAME --query "passwords[0].value" -o tsv)
+
+# Crear un secret de Kubernetes con las credenciales
+kubectl create secret docker-registry acr-secret \
+  --docker-server=${ACR_LOGIN_SERVER} \
+  --docker-username=$ACR_USERNAME \
+  --docker-password=$ACR_PASSWORD \
+  --namespace=default
+```
+
+Luego, asegúrate de que el `deployment.yaml` incluya `imagePullSecrets`:
+
+```yaml
+spec:
+  imagePullSecrets:
+  - name: acr-secret
+  containers:
+  - name: flask-api
+    image: ${ACR_LOGIN_SERVER}/flask-api:v1
+    imagePullPolicy: Always
 ```
 
 ---
@@ -333,4 +385,5 @@ kubectl describe application flask-app -n argocd
 6. Configurar Argo CD → Crear Application
 7. Verificar despliegue → kubectl get pods/svc
 ```
+
 
