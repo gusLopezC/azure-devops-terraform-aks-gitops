@@ -85,7 +85,7 @@ jobs:
           sleep 15
           
           # Verificar que la aplicación existe
-          if ! kubectl get application $ARGOCD_APP_NAME -n argocd &>/dev/null; then
+          if ! kubectl get application $ARGOCD_APP_NAME &>/dev/null; then
             echo "Warning: ArgoCD Application '$ARGOCD_APP_NAME' not found in namespace 'argocd'"
             echo "Please ensure the Application is created."
             exit 1
