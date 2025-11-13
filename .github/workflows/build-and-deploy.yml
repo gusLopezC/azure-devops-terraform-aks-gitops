@@ -53,6 +53,7 @@ jobs:
         run: |
           git clone https://${{ secrets.GITHUB_PAT }}@github.com/gusLopezC/azure-devops-terraform-aks-gitops.git repo
           cd repo
+          git remote set-url origin https://${{ secrets.GITHUB_PAT }}@github.com/gusLopezC/azure-devops-terraform-aks-gitops.git
           sed -i "s|image: .*flask-api.*|image: $ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}|" gitops-manifests/deployment.yaml
           git config user.name "github-actions"
           git config user.email "actions@github.com"
