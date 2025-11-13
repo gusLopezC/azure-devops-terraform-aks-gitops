@@ -18,7 +18,7 @@ spec:
       - name: acr-secret
       containers:
       - name: flask-api
-        image: acraks8vng.azurecr.io/flask-api:a7d26033d0c283dd3e634f864e37d8086ae4bd90
+        image: acraks8vng.azurecr.io/flask-api:0951550faa8a5ead4862ef84695e184e48b1c064
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
