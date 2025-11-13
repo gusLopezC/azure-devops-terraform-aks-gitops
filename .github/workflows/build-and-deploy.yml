@@ -11,7 +11,7 @@ env:
   RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
   AKS_CLUSTER: ${{ secrets.AKS_CLUSTER }}
   ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }} # e.g. myacr.azurecr.io
-  GITOPS_REPO: https://github.com/EssenceCodes/azure-devops-terraform-aks-gitops-lab.git
+  GITOPS_REPO: https://github.com/gusLopezC/azure-devops-terraform-aks-gitops.git
   GITOPS_BRANCH: main
 
 jobs:
