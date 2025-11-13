@@ -72,38 +72,59 @@ jobs:
           rm argocd-linux-amd64
           argocd version --client
 
-      - name: Get ArgoCD Server and Password
-        id: argocd
+      - name: Get ArgoCD Password
+        id: argocd-password
         run: |
-          # Obtener la IP del servidor de ArgoCD
-          ARGOCD_SERVER=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-          if [ -z "$ARGOCD_SERVER" ]; then
-            ARGOCD_SERVER=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-          fi
-          echo "server=$ARGOCD_SERVER" >> $GITHUB_OUTPUT
-          
-          # Obtener la contraseña de ArgoCD
           ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
           echo "password=$ARGOCD_PASSWORD" >> $GITHUB_OUTPUT
-          
-          echo "ArgoCD Server: $ARGOCD_SERVER"
 
-      - name: Sync ArgoCD Application
-        env:
-          ARGOCD_SERVER: ${{ steps.argocd.outputs.server }}
-          ARGOCD_PASSWORD: ${{ steps.argocd.outputs.password }}
+      - name: Setup ArgoCD Port Forward and Sync
         run: |
           # Esperar un momento para que ArgoCD detecte el cambio en el repo
-          sleep 10
+          echo "Waiting for ArgoCD to detect changes in GitOps repo..."
+          sleep 15
           
-          # Login a ArgoCD
-          argocd login $ARGOCD_SERVER --username admin --password "$ARGOCD_PASSWORD" --insecure --grpc-web
+          # Verificar que la aplicación existe
+          if ! kubectl get application $ARGOCD_APP_NAME -n argocd &>/dev/null; then
+            echo "Warning: ArgoCD Application '$ARGOCD_APP_NAME' not found in namespace 'argocd'"
+            echo "Please ensure the Application is created."
+            exit 1
+          fi
+          
+          # Iniciar port-forward en background
+          kubectl port-forward svc/argocd-server -n argocd 8080:443 &
+          PORT_FORWARD_PID=$!
+          
+          # Esperar a que el port-forward esté listo
+          sleep 5
+          
+          # Login a ArgoCD usando localhost
+          argocd login localhost:8080 --username admin --password "${{ steps.argocd-password.outputs.password }}" --insecure --grpc-web || {
+            echo "Failed to login to ArgoCD"
+            kill $PORT_FORWARD_PID 2>/dev/null || true
+            exit 1
+          }
+          
+          # Hacer refresh de la aplicación
+          echo "Refreshing application..."
+          argocd app get $ARGOCD_APP_NAME || echo "Could not get app details"
           
           # Hacer sync de la aplicación
-          argocd app sync $ARGOCD_APP_NAME --prune --force || echo "Sync command completed (may have warnings)"
+          echo "Syncing application..."
+          argocd app sync $ARGOCD_APP_NAME --prune --force || {
+            echo "Sync failed, but continuing..."
+          }
           
           # Esperar a que el sync se complete
-          argocd app wait $ARGOCD_APP_NAME --timeout 300 || echo "Wait timeout or app already synced"
+          echo "Waiting for sync to complete..."
+          argocd app wait $ARGOCD_APP_NAME --timeout 300 --health || {
+            echo "Wait timeout or health check failed, but continuing..."
+          }
           
           # Mostrar el estado de la aplicación
+          echo ""
+          echo "Application status:"
           argocd app get $ARGOCD_APP_NAME
+          
+          # Detener el port-forward
+          kill $PORT_FORWARD_PID 2>/dev/null || true
