@@ -11,7 +11,7 @@ Necesitas configurar los siguientes secretos en tu repositorio de GitHub:
 3. `RESOURCE_GROUP` - Nombre del Resource Group
 4. `AKS_CLUSTER` - Nombre del cluster AKS
 5. `ACR_LOGIN_SERVER` - Servidor de login del ACR
-6. `GITHUB_PAT` ⚠️ **REQUERIDO** - Personal Access Token de GitHub para hacer push al repositorio GitOps
+6. `GITOPS_REPO_TOKEN` ⚠️ **REQUERIDO** - Personal Access Token de GitHub para hacer push al repositorio GitOps
 
 ---
 
@@ -81,7 +81,7 @@ az role assignment create \
 
 ## 🔑 Paso 2: Crear Personal Access Token (PAT) de GitHub
 
-El secreto `GITHUB_PAT` es necesario para que GitHub Actions pueda hacer push al repositorio GitOps.
+El secreto `GITOPS_REPO_TOKEN` es necesario para que GitHub Actions pueda hacer push al repositorio GitOps.
 
 ### 2.1 Crear el Personal Access Token
 
@@ -101,7 +101,7 @@ El secreto `GITHUB_PAT` es necesario para que GitHub Actions pueda hacer push al
 1. Ve a tu repositorio en GitHub
 2. **Settings** → **Secrets and variables** → **Actions**
 3. Click en **New repository secret**
-4. **Name**: `GITHUB_PAT`
+4. **Name**: `GITOPS_REPO_TOKEN`
 5. **Value**: Pega el token que copiaste
 6. Click en **Add secret**
 
@@ -194,8 +194,8 @@ Configura los siguientes secretos uno por uno:
 - **Value**: El login server completo con `.azurecr.io`
 - **Ejemplo**: `acraks8vng.azurecr.io`
 
-#### 🔐 `GITHUB_PAT`
-- **Name**: `GITHUB_PAT`
+#### 🔐 `GITOPS_REPO_TOKEN`
+- **Name**: `GITOPS_REPO_TOKEN`
 - **Value**: El Personal Access Token que creaste en el Paso 2
 - **Ejemplo**: `ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` (el token completo)
 
@@ -213,7 +213,7 @@ Debes ver estos 6 secretos:
 - ✅ `RESOURCE_GROUP`
 - ✅ `AKS_CLUSTER`
 - ✅ `ACR_LOGIN_SERVER`
-- ✅ `GITHUB_PAT`
+- ✅ `GITOPS_REPO_TOKEN`
 
 ### 5.2 Probar el workflow
 
@@ -275,7 +275,7 @@ Basándote en tu configuración actual (`terraform.tfvars`):
 | `RESOURCE_GROUP` | `rg-aks-lab` | De `terraform.tfvars` |
 | `AKS_CLUSTER` | `aks-lab` | De `terraform.tfvars` |
 | `ACR_LOGIN_SERVER` | `acraksXXXX.azurecr.io` | `terraform output acr_login_server` |
-| `GITHUB_PAT` | Personal Access Token | GitHub → Settings → Developer settings → Personal access tokens |
+| `GITOPS_REPO_TOKEN` | Personal Access Token | GitHub → Settings → Developer settings → Personal access tokens |
 
 ---
 
